@@ -8,25 +8,37 @@ type AuthModalProps = {
 };
 
 export function AuthModal({ mode, onClose }: AuthModalProps) {
+  const [accountType, setAccountType] = useState<'user' | 'pharmacy'>('user');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [pharmacyName, setPharmacyName] = useState('');
+  const [licenseNumber, setLicenseNumber] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+
+  const { signInUser, signInPharmacy, signUpUser, signUpPharmacy } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    const { error } = mode === 'login'
-      ? await signIn(email, password)
-      : await signUp(email, password);
+    let result;
+
+    if (mode === 'login') {
+      result = accountType === 'user'
+        ? await signInUser(email, password)
+        : await signInPharmacy(email, password);
+    } else {
+      result = accountType === 'user'
+        ? await signUpUser(email, password)
+        : await signUpPharmacy(email, password, pharmacyName, licenseNumber);
+    }
 
     setLoading(false);
 
-    if (error) {
-      setError(error.message);
+    if (result.error) {
+      setError(result.error.message);
     } else {
       onClose();
     }
@@ -43,7 +55,7 @@ export function AuthModal({ mode, onClose }: AuthModalProps) {
         </button>
 
         <div className="p-8">
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <img
               src="/ChatGPT_Image_Jan_22__2026__11_25_31_PM-removebg-preview_(1).png"
               alt="MediTrack Logo"
@@ -55,11 +67,68 @@ export function AuthModal({ mode, onClose }: AuthModalProps) {
             <p className="text-amber-700">
               {mode === 'login'
                 ? 'Sign in to your MediTrack account'
-                : 'Join MediTrack to find your medicines'}
+                : 'Join MediTrack today'}
             </p>
           </div>
 
+          {/* Account Type Toggle */}
+          <div className="flex rounded-lg border border-gray-200 p-1 mb-6">
+            <button
+              type="button"
+              onClick={() => { setAccountType('user'); setError(''); }}
+              className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+                accountType === 'user'
+                  ? 'bg-amber-700 text-white'
+                  : 'text-gray-600 hover:text-amber-700'
+              }`}
+            >
+              I'm a User
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAccountType('pharmacy'); setError(''); }}
+              className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors ${
+                accountType === 'pharmacy'
+                  ? 'bg-amber-700 text-white'
+                  : 'text-gray-600 hover:text-amber-700'
+              }`}
+            >
+              I'm a Pharmacy
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'signup' && accountType === 'pharmacy' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Pharmacy Name
+                  </label>
+                  <input
+                    type="text"
+                    value={pharmacyName}
+                    onChange={(e) => setPharmacyName(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                    placeholder="e.g. City Medical Store"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    License Number
+                  </label>
+                  <input
+                    type="text"
+                    value={licenseNumber}
+                    onChange={(e) => setLicenseNumber(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                    placeholder="e.g. PH-2024-XXXXX"
+                  />
+                </div>
+              </>
+            )}
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
@@ -102,17 +171,18 @@ export function AuthModal({ mode, onClose }: AuthModalProps) {
               disabled={loading}
               className="w-full py-3 bg-amber-700 text-white rounded-lg hover:bg-amber-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Sign Up'}
+              {loading
+                ? 'Please wait...'
+                : mode === 'login'
+                  ? `Sign In as ${accountType === 'user' ? 'User' : 'Pharmacy'}`
+                  : `Sign Up as ${accountType === 'user' ? 'User' : 'Pharmacy'}`}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-600">
             {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
             <button
-              onClick={() => {
-                setError('');
-                onClose();
-              }}
+              onClick={() => { setError(''); onClose(); }}
               className="text-amber-700 font-medium hover:text-amber-800"
             >
               {mode === 'login' ? 'Sign up' : 'Sign in'}
