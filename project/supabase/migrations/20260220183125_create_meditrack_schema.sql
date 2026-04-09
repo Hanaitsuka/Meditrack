@@ -96,3 +96,20 @@ CREATE POLICY "Anyone can view inventory"
 CREATE INDEX IF NOT EXISTS idx_medicines_name ON medicines(name);
 CREATE INDEX IF NOT EXISTS idx_inventory_medicine_id ON inventory(medicine_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_pharmacy_id ON inventory(pharmacy_id);
+create table profiles (
+  id uuid references auth.users on delete cascade primary key,
+  email text not null,
+  role text check (role in ('user', 'pharmacy')) not null default 'user',
+  pharmacy_name text,
+  license_number text,
+  created_at timestamp with time zone default now()
+);
+
+-- Allow users to read/write only their own profile
+alter table profiles enable row level security;
+
+create policy "Users can view own profile" on profiles
+  for select using (auth.uid() = id);
+
+create policy "Users can insert own profile" on profiles
+  for insert with check (auth.uid() = id);
