@@ -1,6 +1,7 @@
 import { ArrowLeft, MapPin, Phone, Package, IndianRupee } from 'lucide-react';
 import { Medicine, SearchResult } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect } from "react";
 
 type SearchResultsProps = {
   medicine: Medicine | null;
@@ -19,10 +20,49 @@ export function SearchResults({
 }: SearchResultsProps) {
   const { user, signOut } = useAuth();
 
-  const calculateDistance = (lat: number, lng: number) => {
-    const distances = [0.5, 1.2, 2.3, 3.5, 4.1, 5.8];
-    return distances[Math.floor(Math.random() * distances.length)];
-  };
+  const [userLocation, setUserLocation] = useState<{
+  lat: number;
+  lng: number;
+} | null>(null);
+
+useEffect(() => {
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      setUserLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+    },
+    (error) => {
+      console.error("Location error:", error);
+    }
+  );
+}, []);
+
+const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+) => {
+  const R = 6371; // km
+
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  
+
+  return R * c;
+};
 
   const openMap = (placeId: string) => {
     window.open(
@@ -140,11 +180,16 @@ export function SearchResults({
               </div>
             ) : (
               <div className="grid gap-4">
+
                 {results.map((result, index) => {
-                  const distance = calculateDistance(
-                    result.pharmacy.latitude,
-                    result.pharmacy.longitude
-                  );
+                    const distance = userLocation
+                    ? calculateDistance(
+                        userLocation.lat,
+                        userLocation.lng,
+                        result.pharmacy.latitude,
+                        result.pharmacy.longitude
+                      )
+                    : null;
                   return (
                     <div
                       key={result.pharmacy.id}
@@ -171,7 +216,9 @@ export function SearchResults({
 
                             <div className="flex items-center gap-2 text-amber-700 font-medium">
                               <MapPin className="w-5 h-5" />
-                              <span>{distance.toFixed(1)} km away</span>
+                              <span>
+                                {distance ? `${distance.toFixed(1)} km away` : "Calculating..."}
+                              </span>
                             </div>
                           </div>
                         </div>
