@@ -70,6 +70,25 @@ const calculateDistance = (
       '_blank'
     );
   };
+  const sortedResults = [...results].sort((a, b) => {
+  if (!userLocation) return 0;
+
+  const distA = calculateDistance(
+    userLocation.lat,
+    userLocation.lng,
+    a.pharmacy.latitude,
+    a.pharmacy.longitude
+  );
+
+  const distB = calculateDistance(
+    userLocation.lat,
+    userLocation.lng,
+    b.pharmacy.latitude,
+    b.pharmacy.longitude
+  );
+
+  return distA - distB;
+});
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-rose-50">
@@ -181,7 +200,7 @@ const calculateDistance = (
             ) : (
               <div className="grid gap-4">
 
-                {results.map((result, index) => {
+                {sortedResults.map((result, index) => {
                     const distance = userLocation
                     ? calculateDistance(
                         userLocation.lat,
