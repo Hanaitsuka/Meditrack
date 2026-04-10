@@ -113,3 +113,5 @@ create policy "Users can view own profile" on profiles
 
 create policy "Users can insert own profile" on profiles
   for insert with check (auth.uid() = id);
+
+alter table pharmacies add column if not exists user_id uuid references auth.users on delete cascade;

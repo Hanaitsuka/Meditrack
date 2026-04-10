@@ -13,6 +13,7 @@ export function AuthModal({ mode, onClose }: AuthModalProps) {
   const [password, setPassword] = useState('');
   const [pharmacyName, setPharmacyName] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
+  const [address, setAddress] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +33,7 @@ export function AuthModal({ mode, onClose }: AuthModalProps) {
     } else {
       result = accountType === 'user'
         ? await signUpUser(email, password)
-        : await signUpPharmacy(email, password, pharmacyName, licenseNumber);
+        : await signUpPharmacy(email, password, pharmacyName, licenseNumber, address);
     }
 
     setLoading(false);
@@ -71,7 +72,6 @@ export function AuthModal({ mode, onClose }: AuthModalProps) {
             </p>
           </div>
 
-          {/* Account Type Toggle */}
           <div className="flex rounded-lg border border-gray-200 p-1 mb-6">
             <button
               type="button"
@@ -124,6 +124,19 @@ export function AuthModal({ mode, onClose }: AuthModalProps) {
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
                     placeholder="e.g. PH-2024-XXXXX"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Pharmacy Address
+                  </label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                    placeholder="e.g. 123 Main Street, City"
                   />
                 </div>
               </>
