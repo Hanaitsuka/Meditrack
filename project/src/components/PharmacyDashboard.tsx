@@ -22,7 +22,12 @@ export function PharmacyDashboard() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  // Fetch pharmacy id for the logged in user
+  // For inline editing of existing inventory
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editStock, setEditStock] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [adjustAmount, setAdjustAmount] = useState('');
+
   useEffect(() => {
     const fetchPharmacyId = async () => {
       if (!user) return;
@@ -31,126 +36,13 @@ export function PharmacyDashboard() {
         .select('id')
         .eq('user_id', user.id)
         .single();
-
-      if (!error && data) {
-        setPharmacyId(data.id);
-      }
+      if (!error && data) setPharmacyId(data.id);
     };
     fetchPharmacyId();
   }, [user]);
 
-  // Fetch existing inventory for this pharmacy
-  useEffect(() => {
-    const fetchInventory = async () => {
-      if (!pharmacyId) return;
-      const { data, error } = await supabase
-        .from('inventory')
-        .select(`
-          id,
-          stock_quantity,
-          price,
-          medicine:medicines (
-            name,
-            brand
-          )
-        `)
-        .eq('pharmacy_id', pharmacyId);
-
-      if (!error && data) {
-        const items: InventoryItem[] = data.map((item: any) => ({
-          id: item.id,
-          medicine_name: item.medicine.name,
-          brand: item.medicine.brand,
-          stock_quantity: item.stock_quantity,
-          price: item.price,
-        }));
-        setInventoryList(items);
-      }
-    };
-    fetchInventory();
-  }, [pharmacyId]);
-
-  const handleAddMedicine = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setMessage('');
-
-    if (!pharmacyId) {
-      setError('Pharmacy not found. Please contact support.');
-      return;
-    }
-
-    setLoading(true);
-
-    // Step 1: Check if medicine already exists, if not insert it
-    let medicineId: string;
-    const { data: existingMedicine } = await supabase
-      .from('medicines')
-      .select('id')
-      .ilike('name', medicineName)
-      .ilike('brand', brand)
-      .maybeSingle();
-
-    if (existingMedicine) {
-      medicineId = existingMedicine.id;
-    } else {
-      const { data: newMedicine, error: medicineError } = await supabase
-        .from('medicines')
-        .insert({ name: medicineName, brand })
-        .select('id')
-        .single();
-
-      if (medicineError || !newMedicine) {
-        setError('Failed to add medicine. Try again.');
-        setLoading(false);
-        return;
-      }
-      medicineId = newMedicine.id;
-    }
-
-    // Step 2: Check if inventory entry already exists for this pharmacy + medicine
-    const { data: existingInventory } = await supabase
-      .from('inventory')
-      .select('id, stock_quantity')
-      .eq('pharmacy_id', pharmacyId)
-      .eq('medicine_id', medicineId)
-      .maybeSingle();
-
-    if (existingInventory) {
-      // Update stock by adding to existing quantity
-      const newStock = existingInventory.stock_quantity + parseInt(stock);
-      const { error: updateError } = await supabase
-        .from('inventory')
-        .update({ stock_quantity: newStock, price: parseFloat(price) })
-        .eq('id', existingInventory.id);
-
-      if (updateError) {
-        setError('Failed to update stock. Try again.');
-        setLoading(false);
-        return;
-      }
-      setMessage(`Stock updated! New quantity: ${newStock}`);
-    } else {
-      // Insert new inventory entry
-      const { error: inventoryError } = await supabase
-        .from('inventory')
-        .insert({
-          pharmacy_id: pharmacyId,
-          medicine_id: medicineId,
-          stock_quantity: parseInt(stock),
-          price: parseFloat(price),
-        });
-
-      if (inventoryError) {
-        setError('Failed to add inventory. Try again.');
-        setLoading(false);
-        return;
-      }
-      setMessage('Medicine added successfully!');
-    }
-
-    // Refresh inventory list
-    const { data: updatedInventory } = await supabase
+  const fetchInventory = async (pharmId: string) => {
+    const { data, error } = await supabase
       .from('inventory')
       .select(`
         id,
@@ -161,24 +53,140 @@ export function PharmacyDashboard() {
           brand
         )
       `)
-      .eq('pharmacy_id', pharmacyId);
+      .eq('pharmacy_id', pharmId);
 
-    if (updatedInventory) {
-      setInventoryList(updatedInventory.map((item: any) => ({
+    if (!error && data) {
+      setInventoryList(data.map((item: any) => ({
         id: item.id,
         medicine_name: item.medicine.name,
-        brand: item.medicine.brand,
+        brand: item.medicine.brand ?? '',
         stock_quantity: item.stock_quantity,
         price: item.price,
       })));
     }
+  };
 
-    // Reset form
+  useEffect(() => {
+    if (pharmacyId) fetchInventory(pharmacyId);
+  }, [pharmacyId]);
+
+  // Add new medicine to inventory
+  const handleAddMedicine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    if (!pharmacyId) { setError('Pharmacy not found. Please contact support.'); return; }
+    setLoading(true);
+
+    // Check if medicine exists
+    let medicineId: string;
+    const { data: existingMedicine } = await supabase
+      .from('medicines')
+      .select('id')
+      .ilike('name', medicineName)
+      .maybeSingle();
+
+    if (existingMedicine) {
+      medicineId = existingMedicine.id;
+    } else {
+      const { data: newMedicine, error: medicineError } = await supabase
+        .from('medicines')
+        .insert({ name: medicineName, brand })
+        .select('id')
+        .single();
+      if (medicineError || !newMedicine) {
+        setError('Failed to add medicine. Try again.');
+        setLoading(false);
+        return;
+      }
+      medicineId = newMedicine.id;
+    }
+
+    // Check if inventory entry already exists
+    const { data: existingInventory } = await supabase
+      .from('inventory')
+      .select('id, stock_quantity')
+      .eq('pharmacy_id', pharmacyId)
+      .eq('medicine_id', medicineId)
+      .maybeSingle();
+
+    if (existingInventory) {
+      const newStock = existingInventory.stock_quantity + parseInt(stock);
+      await supabase
+        .from('inventory')
+        .update({ stock_quantity: newStock, price: parseFloat(price) })
+        .eq('id', existingInventory.id);
+      setMessage(`Stock updated! New quantity: ${newStock}`);
+    } else {
+      await supabase.from('inventory').insert({
+        pharmacy_id: pharmacyId,
+        medicine_id: medicineId,
+        stock_quantity: parseInt(stock),
+        price: parseFloat(price),
+      });
+      setMessage('Medicine added successfully!');
+    }
+
     setMedicineName('');
     setBrand('');
     setStock('');
     setPrice('');
     setLoading(false);
+    fetchInventory(pharmacyId);
+  };
+
+  // Add stock to existing inventory item
+  const handleAddStock = async (item: InventoryItem) => {
+    const amount = parseInt(adjustAmount);
+    if (!amount || amount <= 0) return;
+    const newStock = item.stock_quantity + amount;
+    const { error } = await supabase
+      .from('inventory')
+      .update({ stock_quantity: newStock })
+      .eq('id', item.id);
+    if (!error) {
+      setMessage(`Added ${amount} units to ${item.medicine_name}. New stock: ${newStock}`);
+      setAdjustAmount('');
+      setEditingId(null);
+      fetchInventory(pharmacyId!);
+    }
+  };
+
+  // Remove stock from existing inventory item
+  const handleRemoveStock = async (item: InventoryItem) => {
+    const amount = parseInt(adjustAmount);
+    if (!amount || amount <= 0) return;
+    if (amount > item.stock_quantity) {
+      setError(`Cannot remove ${amount} units. Only ${item.stock_quantity} in stock.`);
+      return;
+    }
+    const newStock = item.stock_quantity - amount;
+    const { error } = await supabase
+      .from('inventory')
+      .update({ stock_quantity: newStock })
+      .eq('id', item.id);
+    if (!error) {
+      setMessage(`Removed ${amount} units from ${item.medicine_name}. New stock: ${newStock}`);
+      setAdjustAmount('');
+      setEditingId(null);
+      fetchInventory(pharmacyId!);
+    }
+  };
+
+  // Update price of existing inventory item
+  const handleUpdatePrice = async (item: InventoryItem) => {
+    const newPrice = parseFloat(editPrice);
+    if (!newPrice || newPrice <= 0) return;
+    const { error } = await supabase
+      .from('inventory')
+      .update({ price: newPrice })
+      .eq('id', item.id);
+    if (!error) {
+      setMessage(`Price updated for ${item.medicine_name} to ₹${newPrice.toFixed(2)}`);
+      setEditPrice('');
+      setEditingId(null);
+      fetchInventory(pharmacyId!);
+    }
   };
 
   return (
@@ -203,9 +211,9 @@ export function PharmacyDashboard() {
 
       <div className="max-w-4xl mx-auto p-6 space-y-8">
 
-        {/* Add Medicine Form */}
+        {/* Add New Medicine */}
         <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-xl font-bold text-amber-900 mb-6">Add / Update Medicine Stock</h2>
+          <h2 className="text-xl font-bold text-amber-900 mb-6">Add New Medicine</h2>
           <form onSubmit={handleAddMedicine} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Medicine Name</label>
@@ -272,51 +280,124 @@ export function PharmacyDashboard() {
                 disabled={loading}
                 className="w-full py-3 bg-amber-700 text-white rounded-lg hover:bg-amber-800 transition-colors disabled:opacity-50 font-medium"
               >
-                {loading ? 'Saving...' : 'Add / Update Stock'}
+                {loading ? 'Saving...' : 'Add Medicine'}
               </button>
             </div>
           </form>
         </div>
 
-        {/* Current Inventory Table */}
+        {/* Current Inventory */}
         <div className="bg-white rounded-2xl shadow p-6">
           <h2 className="text-xl font-bold text-amber-900 mb-4">Current Inventory</h2>
           {inventoryList.length === 0 ? (
             <p className="text-gray-500 text-sm">No medicines added yet.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left text-gray-600">
-                    <th className="pb-3 pr-4">Medicine</th>
-                    <th className="pb-3 pr-4">Brand</th>
-                    <th className="pb-3 pr-4">Stock</th>
-                    <th className="pb-3">Price (₹)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inventoryList.map((item) => (
-                    <tr key={item.id} className="border-b border-gray-100 hover:bg-amber-50">
-                      <td className="py-3 pr-4 font-medium text-gray-800">{item.medicine_name}</td>
-                      <td className="py-3 pr-4 text-gray-600">{item.brand}</td>
-                      <td className="py-3 pr-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          item.stock_quantity > 10
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}>
-                          {item.stock_quantity} units
-                        </span>
-                      </td>
-                      <td className="py-3 text-gray-800">₹{item.price.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-4">
+              {inventoryList.map((item) => (
+                <div key={item.id} className="border border-gray-200 rounded-xl p-4">
+                  {/* Medicine Info */}
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="font-semibold text-gray-800">{item.medicine_name}</h3>
+                      <p className="text-sm text-gray-500">{item.brand}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        item.stock_quantity > 10
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {item.stock_quantity} units
+                      </span>
+                      <p className="text-sm text-gray-600 mt-1">₹{item.price.toFixed(2)}</p>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  {editingId !== item.id ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setEditingId(item.id); setAdjustAmount(''); setEditPrice(''); setError(''); setMessage(''); }}
+                        className="flex-1 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-sm font-medium hover:bg-amber-100 transition-colors"
+                      >
+                        Update Stock / Price
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 mt-2">
+                      {/* Stock Adjustment */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Adjust Stock (enter amount)
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={adjustAmount}
+                            onChange={(e) => setAdjustAmount(e.target.value)}
+                            min="1"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                            placeholder="e.g. 50"
+                          />
+                          <button
+                            onClick={() => handleAddStock(item)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                          >
+                            + Add
+                          </button>
+                          <button
+                            onClick={() => handleRemoveStock(item)}
+                            className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+                          >
+                            − Remove
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Price Update */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Update Price (₹)
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={editPrice}
+                            onChange={(e) => setEditPrice(e.target.value)}
+                            min="0"
+                            step="0.01"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                            placeholder={`Current: ₹${item.price.toFixed(2)}`}
+                          />
+                          <button
+                            onClick={() => handleUpdatePrice(item)}
+                            className="px-4 py-2 bg-amber-700 text-white rounded-lg text-sm font-medium hover:bg-amber-800 transition-colors"
+                          >
+                            Update
+                          </button>
+                        </div>
+                      </div>
+
+                      {error && (
+                        <p className="text-red-600 text-xs">{error}</p>
+                      )}
+                      {message && (
+                        <p className="text-green-600 text-xs">{message}</p>
+                      )}
+
+                      <button
+                        onClick={() => { setEditingId(null); setError(''); setMessage(''); }}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
-
       </div>
     </div>
   );
