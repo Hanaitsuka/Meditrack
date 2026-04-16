@@ -2,6 +2,7 @@ import { ArrowLeft, MapPin, Phone, Package, IndianRupee } from 'lucide-react';
 import { Medicine, SearchResult } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect } from "react";
+import { PharmacyRatingReview } from './PharmacyRatingReview';
 
 type SearchResultsProps = {
   medicine: Medicine | null;
@@ -269,6 +270,11 @@ const calculateDistance = (
                           </button>
                         </div>
                       </div>
+                      <PharmacyRatingReview
+                      pharmacyId={result.pharmacy.id}
+                      pharmacyName={result.pharmacy.name}
+                      onAuthClick={onAuthClick}
+                      />
                     </div>
                   );
                 })}
