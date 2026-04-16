@@ -69,38 +69,6 @@ CREATE TABLE IF NOT EXISTS inventory (
   UNIQUE(medicine_id, pharmacy_id)
 );
 
--- Create pharmacy_reviews table
-CREATE TABLE IF NOT EXISTS pharmacy_reviews (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pharmacy_id uuid NOT NULL REFERENCES pharmacies(id) ON DELETE CASCADE,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
-  review_text text DEFAULT '',
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(pharmacy_id, user_id)
-);
-
--- Enable RLS
-ALTER TABLE pharmacy_reviews ENABLE ROW LEVEL SECURITY;
-
--- Anyone can read reviews
-CREATE POLICY "Anyone can view reviews"
-  ON pharmacy_reviews FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
--- Only logged-in users can insert their own review
-CREATE POLICY "Authenticated users can insert reviews"
-  ON pharmacy_reviews FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id);
-
--- Users can update only their own review
-CREATE POLICY "Users can update own reviews"
-  ON pharmacy_reviews FOR UPDATE
-  TO authenticated
-  USING (auth.uid() = user_id);
-
 -- Enable RLS
 ALTER TABLE medicines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pharmacies ENABLE ROW LEVEL SECURITY;
@@ -146,4 +114,4 @@ create policy "Users can view own profile" on profiles
 create policy "Users can insert own profile" on profiles
   for insert with check (auth.uid() = id);
 
-alter table pharmacies add column if not exists user_id uuid references auth.users on delete cascade;
+alter table pharmacies add column if not exists user_id uuid references auth.users on delete cascade;c
