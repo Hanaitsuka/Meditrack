@@ -2,7 +2,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
-type Role = 'user' | 'pharmacy';
+// Added 'admin' to the Role type
+type Role = 'user' | 'pharmacy' | 'admin';
 
 type AuthContextType = {
   user: User | null;
@@ -102,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signOut();
         return { error: new Error('Please use the Pharmacy Login page.') };
       }
+      // Admin and user roles are both allowed through this login
     }
     return { error: error as Error | null };
   };
