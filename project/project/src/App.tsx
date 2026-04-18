@@ -4,8 +4,6 @@ import { HomePage } from './components/HomePage';
 import { SearchResults } from './components/SearchResults';
 import { AuthModal } from './components/AuthModal';
 import { PharmacyDashboard } from './components/PharmacyDashboard';
-import { CustomerServicePortal } from './components/CustomerServicePortal';
-import { AdminComplaintsInbox } from './components/AdminComplaintsInbox';
 import { useAuth } from './contexts/AuthContext';
 import { supabase, Medicine, SearchResult } from './lib/supabase';
 
@@ -19,12 +17,6 @@ function AppContent() {
   const [medicine, setMedicine] = useState<Medicine | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [supportOpen, setSupportOpen] = useState(false);
-
-  // If logged in as admin, show admin complaints inbox
-  if (user && role === 'admin') {
-    return <AdminComplaintsInbox />;
-  }
 
   // If logged in as pharmacy, show dashboard
   if (user && role === 'pharmacy') {
@@ -105,11 +97,7 @@ function AppContent() {
   return (
     <>
       {view === 'home' ? (
-        <HomePage
-          onSearch={handleSearch}
-          onAuthClick={handleAuthClick}
-          onOpenSupport={() => setSupportOpen(true)}
-        />
+        <HomePage onSearch={handleSearch} onAuthClick={handleAuthClick} />
       ) : (
         <SearchResults
           medicine={medicine}
@@ -119,18 +107,10 @@ function AppContent() {
           onAuthClick={handleAuthClick}
         />
       )}
-
       {authModalOpen && (
         <AuthModal
           mode={authModalMode}
           onClose={() => setAuthModalOpen(false)}
-        />
-      )}
-
-      {supportOpen && (
-        <CustomerServicePortal
-          onClose={() => setSupportOpen(false)}
-          onAuthClick={handleAuthClick}
         />
       )}
     </>

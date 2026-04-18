@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { Search, HeadphonesIcon } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 type HomePageProps = {
   onSearch: (query: string) => void;
   onAuthClick: (mode: 'login' | 'signup') => void;
-  onOpenSupport: () => void;
 };
 
-export function HomePage({ onSearch, onAuthClick, onOpenSupport }: HomePageProps) {
+export function HomePage({ onSearch, onAuthClick }: HomePageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const { user, signOut } = useAuth();
 
@@ -100,16 +99,6 @@ export function HomePage({ onSearch, onAuthClick, onOpenSupport }: HomePageProps
           </p>
         </div>
       </main>
-
-      {/* Floating Customer Service Button */}
-      <button
-        onClick={onOpenSupport}
-        className="fixed bottom-6 right-6 flex items-center gap-2 bg-amber-700 hover:bg-amber-800 text-white px-5 py-3.5 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 z-40"
-        title="Customer Service"
-      >
-        <HeadphonesIcon className="w-5 h-5" />
-        <span className="text-sm font-semibold">Support</span>
-      </button>
     </div>
   );
 }
